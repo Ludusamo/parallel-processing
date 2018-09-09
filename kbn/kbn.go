@@ -19,18 +19,16 @@ type node struct {
 	data      string
 	neighbors map[string]*node
 	prev      *node // Used for pathing back to Kevin Bacon
+
+	priority int // For use by priority queue
+	index    int
 }
 
 type kbngraph map[string]*node
 
-// Priority queue implementation adapted off from:
+// Priority queue implementation adapted from:
 // https://golang.org/pkg/container/heap/
-type pqItem struct {
-	value    *node
-	priority int
-	index    int
-}
-type PriorityQueue []*pqItem
+type PriorityQueue []*node
 
 func (pq PriorityQueue) Less(i, j int) bool {
 	return pq[i].priority < pq[j].priority
@@ -46,7 +44,7 @@ func (pq PriorityQueue) Swap(i, j int) {
 
 func (pq *PriorityQueue) Push(x interface{}) {
 	n := len(*pq)
-	item := x.(*pqItem)
+	item := x.(*node)
 	item.index = n
 	*pq = append(*pq, item)
 }
@@ -63,7 +61,7 @@ func (pq *PriorityQueue) Pop() interface{} {
 	return item
 }
 
-func (pq *PriorityQueue) update(item *pqItem, priority int) {
+func (pq *PriorityQueue) update(item *node, priority int) {
 	item.priority = priority
 	heap.Fix(pq, item.index)
 }
@@ -96,27 +94,31 @@ func (n *node) PrintPath() int {
 	return next.PrintPath() + 1
 }
 
-func (g kbngraph) Dijkstra() {
+/** Dijkstra shortest path implementation, runs on graph and tags all nodes
+* @param src the origin node where dijkstra starts from
+*/
+func (g kbngraph) Dijkstra(src string) {
 	unvisited := make(PriorityQueue, len(g))
 	i := 0
 	for k, v := range g {
-		priority := len(g)
-		if k == "Kevin Bacon" {
-			priority = 0
+		v.priority = len(g)
+		if k == src {
+			v.priority = 0
 		}
-		unvisited[i] = &pqItem{v, priority, i}
+		v.index = i
+		unvisited[i] = v
 		i++
 	}
 	heap.Init(&unvisited)
 
-	cur := heap.Pop(&unvisited).(*pqItem)
-	for ; cur != nil; cur = unvisited.Pop().(*pqItem) {
-        n := cur.value
-        fmt.Println(n.data)
-		/*for k, v := range n.neighbors {
-			fmt.Println(k, v)
-		}*/
-		break
+	for len(unvisited) > 0 {
+		cur := heap.Pop(&unvisited).(*node)
+		for _, neighbor := range cur.neighbors {
+			if neighbor.priority > cur.priority+1 {
+				neighbor.prev = cur
+				unvisited.update(neighbor, cur.priority+1)
+			}
+		}
 	}
 }
 
@@ -130,7 +132,7 @@ func (g kbngraph) AddNode(nodeType int, name string) *node {
 	if exists {
 		return n
 	}
-	g[name] = &node{nodeType, name, make(map[string]*node), nil}
+	g[name] = &node{nodeType, name, make(map[string]*node), nil, -1, -1}
 	return g[name]
 }
 
@@ -154,6 +156,7 @@ func main() {
 	}
 	defer fin.Close()
 
+    // Construction of graph and preprocessing
 	g := make(kbngraph)
 	scanner := bufio.NewScanner(fin)
 	for scanner.Scan() { // Assumes first line is a movie title
@@ -173,7 +176,7 @@ func main() {
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	g.Dijkstra()
+	g.Dijkstra("Kevin Bacon") // Tags graph for all shortest paths to Kevin
 	fmt.Println("Loading complete!")
 
 	stdinScanner := bufio.NewScanner(os.Stdin)
@@ -192,5 +195,6 @@ func main() {
 				fmt.Println("Found with KBN of", kbn)
 			}
 		}
+		fmt.Println()
 	}
 }
