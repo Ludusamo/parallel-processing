@@ -9,18 +9,13 @@ import (
 	"os"
 )
 
-const (
-	actorType int = iota
-	movieType
-)
-
 type node struct {
-	nodeType  int
 	data      string
 	neighbors map[string]*node
 	prev      *node // Used for pathing back to Kevin Bacon
 
-	priority int // For use by priority queue
+	// For use by priority queue
+	priority int
 	index    int
 }
 
@@ -77,8 +72,10 @@ func (n *node) String() string {
 	return fmt.Sprintf("%v", neighborNames)
 }
 
-/** Reconstructs path and prints path to Kevin Bacon
-* This assumes that Dijkstra's algorithm has already been run on the graph
+/** Reconstructs path and prints path to Kevin Bacon.
+* This assumes that Dijkstra's algorithm has already been run on the graph.
+* An assumption is made that movies are only connected to actors and actors
+* are only connected to movies. We guarantee this when we construct the graph.
 * @return Kevin Bacon Number of node n
  */
 func (n *node) PrintPath() int {
@@ -96,7 +93,7 @@ func (n *node) PrintPath() int {
 
 /** Dijkstra shortest path implementation, runs on graph and tags all nodes
 * @param src the origin node where dijkstra starts from
-*/
+ */
 func (g kbngraph) Dijkstra(src string) {
 	unvisited := make(PriorityQueue, len(g))
 	i := 0
@@ -122,17 +119,16 @@ func (g kbngraph) Dijkstra(src string) {
 	}
 }
 
-/** Checks if a node exists and if not constructs it and adds it to the graph
-* @param nodeType integer identifier of the type of node
+/** Gets a node if it exists and if not constructs it and adds it to the graph
 * @param name string identifier of the node
 * @return pointer to the node
  */
-func (g kbngraph) AddNode(nodeType int, name string) *node {
+func (g kbngraph) GetNode(name string) *node {
 	n, exists := g[name]
 	if exists {
 		return n
 	}
-	g[name] = &node{nodeType, name, make(map[string]*node), nil, -1, -1}
+	g[name] = &node{name, make(map[string]*node), nil, -1, -1}
 	return g[name]
 }
 
@@ -156,20 +152,20 @@ func main() {
 	}
 	defer fin.Close()
 
-    // Construction of graph and preprocessing
+	// Construction of graph and preprocessing
 	g := make(kbngraph)
 	scanner := bufio.NewScanner(fin)
 	for scanner.Scan() { // Assumes first line is a movie title
 		// Construct movie node
 		movieName := scanner.Text()
-		movie := g.AddNode(movieType, movieName)
+		movie := g.GetNode(movieName)
 		// Takes all of the actors and connects them to the movie
 		for scanner.Scan() {
 			name := scanner.Text()
 			if name == "" {
 				break
 			}
-			actor := g.AddNode(actorType, name)
+			actor := g.GetNode(name)
 			connect(movie, actor)
 		}
 	}
@@ -179,6 +175,7 @@ func main() {
 	g.Dijkstra("Kevin Bacon") // Tags graph for all shortest paths to Kevin
 	fmt.Println("Loading complete!")
 
+	// Main Actor Query Loop
 	stdinScanner := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("Enter actor name: ")
