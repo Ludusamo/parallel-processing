@@ -133,8 +133,8 @@ func (g kbngraph) GetNode(name string) *node {
 }
 
 /** Takes two nodes and connects them together by adding them as neighbors
-* @param id1 identifier of the first node
-* @param id2 identifier of the second node
+* @param n1 first node
+* @param n2 second node
 * @return returns an error if the connection could not be made
  */
 func connect(n1 *node, n2 *node) error {
