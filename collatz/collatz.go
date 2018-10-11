@@ -21,12 +21,29 @@ func collatzLen(n int) int {
 	return collatzLen(n*3+1) + 1
 }
 
+/** Generates numbers from i to j (non-inclusive) fed through a channel
+ * @param i start of the sequence
+ * @param j end of the sequence (non-inclusive)
+ * @return read only channel of the sequence
+ */
+func generateNumbers(i int, j int) <-chan int {
+	seqChan := make(chan int)
+	go (func() {
+		for n := i; n < j; n++ {
+			seqChan <- n
+		}
+	})()
+	return seqChan
+}
+
 func main() {
+	numChan := generateNumbers(1, 10000001)
 	maxN, maxLen := 1, 1
-	for i := 1; i < 10000000; i++ {
-		length := collatzLen(i)
+	for i := 1; i < 10000001; i++ {
+		n := <-numChan
+		length := collatzLen(n)
 		if length > maxLen {
-			maxN, maxLen = i, length
+			maxN, maxLen = n, length
 		}
 	}
 	fmt.Printf("Longest sequence starts at %d, length %d\n", maxN, maxLen)
