@@ -1,24 +1,55 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"time"
 )
 
-/** Calculates the Collatz Length of an integer n recursively
+type WrapperFunc func()
+
+/** Takes a function and times it and reports how long it took to run
+ * @param id string identifier for printing purposes
+ * @param f function to be run
+ */
+func timeit(id string, f WrapperFunc) {
+	start := time.Now()
+	f()
+	elapsed := time.Since(start)
+	fmt.Printf("%s ran in %s\n", id, elapsed)
+}
+
+type CollatzPair struct {
+	start  int
+	length int
+}
+
+/** Calculates the Collatz Length of an integer n
  * @param n the starting number
  * @return the Collatz Length of n
  */
 func collatzLen(n int) int {
-	if n <= 0 {
-		return -1
+	length := 1
+	for n != 1 {
+		length++
+		if n%2 == 0 {
+			n /= 2
+		} else {
+			n = n*3 + 1
+		}
 	}
-	if n == 1 {
-		return 1
+	return length
+}
+
+/** Takes input from an input channel and places Collatz Pair into output chan
+ * @param inChan the input channel
+ * @param outChan the output channel
+ */
+func collatzLenProducer(inChan <-chan int, outChan chan *CollatzPair) {
+	for {
+		n := <-inChan
+		outChan <- &CollatzPair{n, collatzLen(n)}
 	}
-	if n%2 == 0 {
-		return collatzLen(n/2) + 1
-	}
-	return collatzLen(n*3+1) + 1
 }
 
 /** Generates numbers from i to j (non-inclusive) fed through a channel
@@ -27,7 +58,7 @@ func collatzLen(n int) int {
  * @return read only channel of the sequence
  */
 func generateNumbers(i int, j int) <-chan int {
-	seqChan := make(chan int)
+	seqChan := make(chan int, 5)
 	go (func() {
 		for n := i; n < j; n++ {
 			seqChan <- n
@@ -36,15 +67,72 @@ func generateNumbers(i int, j int) <-chan int {
 	return seqChan
 }
 
-func main() {
-	numChan := generateNumbers(1, 10000001)
-	maxN, maxLen := 1, 1
-	for i := 1; i < 10000001; i++ {
-		n := <-numChan
-		length := collatzLen(n)
-		if length > maxLen {
-			maxN, maxLen = n, length
+/** Finds the maximum of a number of values coming from a channel
+ * @param numIncoming the number of values to expect
+ * @param inChan the input channel
+ * @return the maximum Collatz Pair flowing through the channel
+ */
+func maxOfChan(numIncoming int, inChan chan *CollatzPair) *CollatzPair {
+	maxPair := &CollatzPair{0, 0}
+	for i := 0; i < numIncoming; i++ {
+		pair := <-inChan
+		if pair.length > maxPair.length {
+			maxPair = pair
 		}
 	}
-	fmt.Printf("Longest sequence starts at %d, length %d\n", maxN, maxLen)
+	return maxPair
+}
+
+/** Finds maximum Collatz Length between two numbers in a parallel architecture
+ * @param start the beginning of the sequence to check
+ * @param end the end of the sequence non-inclusive
+ * @param numWorkers number of worker threads to spawn
+ * @return the maximum Collatz number and its length
+ */
+func maxCollatzParallel(start int, end int, numWorkers int) *CollatzPair {
+	numGen := generateNumbers(start, end)
+	lenChan := make(chan *CollatzPair, numWorkers)
+	for i := 0; i < numWorkers; i++ {
+		go collatzLenProducer(numGen, lenChan)
+	}
+	return maxOfChan(end-start, lenChan)
+}
+
+/** Finds maximum Collatz Length between two numbers in an iterative way
+ * @param start the beginning of the sequence to check
+ * @param end the end of the sequence non-inclusive
+ * @param numWorkers number of worker threads to spawn
+ * @return the maximum Collatz number and its length
+ */
+func maxCollatzIterative(start int, end int) *CollatzPair {
+	maxN, maxLen := 1, 1
+	for i := start; i < end; i++ {
+		length := collatzLen(i)
+		if length > maxLen {
+			maxN, maxLen = i, length
+		}
+	}
+	return &CollatzPair{maxN, maxLen}
+}
+
+func main() {
+	numWorkers := flag.Int("workers", 5, "number of collatz workers to spawn")
+	flag.Parse()
+	//fmt.Printf("Num Workers: %d\n", *numWorkers)
+	//timeit("iterative", func() {
+	//	maxPair := maxCollatzIterative(1, 10000001)
+	//	fmt.Printf("Longest sequence starts at %d, length %d\n",
+	//		maxPair.start,
+	//		maxPair.length)
+	//})
+	//timeit("parallel", func() {
+	//	maxPair := maxCollatzParallel(1, 10000001, *numWorkers)
+	//	fmt.Printf("Longest sequence starts at %d, length %d\n",
+	//		maxPair.start,
+	//		maxPair.length)
+	//})
+	maxPair := maxCollatzParallel(1, 10000001, *numWorkers)
+	fmt.Printf("Longest sequence starts at %d, length %d\n",
+		maxPair.start,
+		maxPair.length)
 }
