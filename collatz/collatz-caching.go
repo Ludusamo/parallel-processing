@@ -3,8 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"sync"
 	"time"
 )
+
+var cache = make(map[int]int)
+var cacheMutex = &sync.Mutex{}
 
 type WrapperFunc func()
 
@@ -29,15 +33,30 @@ type CollatzPair struct {
  * @return the Collatz Length of n
  */
 func collatzLen(n int) int {
+	cur := n
+	encountered := make([]int, 0)
 	length := 1
-	for n != 1 {
+	for cur != 1 {
+		cacheMutex.Lock()
+		l, has := cache[cur]
+		cacheMutex.Unlock()
+		if has {
+			length += l - 1
+			break
+		}
+		encountered = append(encountered, cur)
 		length++
-		if n%2 == 0 {
-			n /= 2
+		if cur%2 == 0 {
+			cur /= 2
 		} else {
-			n = n*3 + 1
+			cur = cur*3 + 1
 		}
 	}
+	cacheMutex.Lock()
+	for i, v := range encountered {
+		cache[v] = length - i
+	}
+	cacheMutex.Unlock()
 	return length
 }
 
@@ -118,7 +137,7 @@ func maxCollatzIterative(start int, end int) *CollatzPair {
 func main() {
 	numWorkers := flag.Int("workers", 5, "number of collatz workers to spawn")
 	flag.Parse()
-	fmt.Printf("Num Workers: %d\n", *numWorkers)
+	//collatzLen(13)
 	//timeit("iterative", func() {
 	//	maxPair := maxCollatzIterative(1, 10000001)
 	//	fmt.Printf("Longest sequence starts at %d, length %d\n",
