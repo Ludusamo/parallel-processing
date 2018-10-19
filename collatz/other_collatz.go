@@ -2,7 +2,21 @@ package main
 
 import (
 	"fmt"
+	"time"
 )
+
+type WrapperFunc func()
+
+/** Takes a function and times it and reports how long it took to run
+ * @param id string identifier for printing purposes
+ * @param f function to be run
+ */
+func timeit(id string, f WrapperFunc) {
+	start := time.Now()
+	f()
+	elapsed := time.Since(start)
+	fmt.Printf("%s ran in %s\n", id, elapsed)
+}
 
 type CollatzPair struct {
 	start,
@@ -38,17 +52,19 @@ func maxCollatz(start int, end int, step int, resultChan chan CollatzPair) {
 }
 
 func main() {
-	numProc := 6
-	resultChan := make(chan CollatzPair, numProc)
-	for i := 0; i < numProc; i++ {
-		go maxCollatz(i, 10000001, numProc, resultChan)
-	}
-	max := CollatzPair{0, 0}
-	for i := 0; i < numProc; i++ {
-		pair := <-resultChan
-		if max.length < pair.length {
-			max = pair
+	timeit("other", func() {
+		numProc := 6
+		resultChan := make(chan CollatzPair, numProc)
+		for i := 0; i < numProc; i++ {
+			go maxCollatz(i, 10000001, numProc, resultChan)
 		}
-	}
-	fmt.Printf("Longest sequence starts at %d, length %d\n", max.start, max.length)
+		max := CollatzPair{0, 0}
+		for i := 0; i < numProc; i++ {
+			pair := <-resultChan
+			if max.length < pair.length {
+				max = pair
+			}
+		}
+		fmt.Printf("Longest sequence starts at %d, length %d\n", max.start, max.length)
+	})
 }

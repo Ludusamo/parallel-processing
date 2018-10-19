@@ -118,7 +118,6 @@ func maxCollatzIterative(start int, end int) *CollatzPair {
 func main() {
 	numWorkers := flag.Int("workers", 5, "number of collatz workers to spawn")
 	flag.Parse()
-	fmt.Printf("Num Workers: %d\n", *numWorkers)
 	//timeit("iterative", func() {
 	//	maxPair := maxCollatzIterative(1, 10000001)
 	//	fmt.Printf("Longest sequence starts at %d, length %d\n",

@@ -24,3 +24,34 @@ For a similar reason on the input, I only had one thread generating values, but 
 To reduce the wait time for a value, I buffered the input thread so, while the workers were calculating Collatz Lengths, the generator could place in more values.
 
 ### Other Designs
+
+So, unless I implemented the design incorrectly or missed something, I believe that this design has the following problem:
+
+Each calculation of a Collatz Length, while not instantaneous, is fast enough that advanced techniques like parallelization and caching result in an overhead that actually makes the operation slower.
+
+A potential other solution is to recognize that if the non-parallel, iterative solution was faster, we can decompose our search space into smaller problems.
+
+The following solution I tested with an alternative version (for my own amusement and learning) of the Collatz code and I did the following to achieve faster results than any of my other solutions:
+
+1. Write a generic function, `maxCollatz`, that given a set of numbers, for me this was described with a `start`, `end`, and `step` parameters, determines the maximum Collatz Length in the set.
+2. Split up your larger search space into sub search spaces.
+3. Run `maxCollatz` on each of the subspaces in separate goroutines and output their result to a channel.
+4. Determine which is the maximum of these subspaces much like the collector from our other architecture.
+
+#### Problems
+
+This method requires you to have a pretty reasonable way to split up your search space.
+The reason for this is if the search spaces aren't split up well, we could potentially have a situation where one of the search spaces is running for a lot longer than the others.
+The more discrepancy in how long each sub search takes there is, the worse this method is.
+Having high differences in the completion times essentially makes this method similar to just the iterative solution with some additional overhead.
+
+The method I used to split up the search spaces was to evenly distribute the subspaces such that they all had integers of varying size.
+I achieved this by offsetting their start points and having them step in uniform step sizes.
+Example: a two process run from 1 to 10 would split up the sets in the following way
+```
+[1, 3, 5, 7, 9]
+[2, 4, 6, 8, 10]
+```
+
+I did this because I made the assumption that larger numbers have larger Collatz lengths.
+There are probably better ways to split the search space, and finding a good way to split up the search space is crucial for my proposed method.
